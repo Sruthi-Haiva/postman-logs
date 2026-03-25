@@ -5,7 +5,7 @@
       "src": "UI_Logs/package.json",
       "use": "@vercel/static-build",
       "config": {
-        "distDir": "UI_Logs/dist"
+        "distDir": "dist"
       }
     }
   ],
