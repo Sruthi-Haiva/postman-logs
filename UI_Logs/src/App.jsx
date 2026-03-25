@@ -10,8 +10,7 @@ import {
   AI_LOGS_DEFAULT_COLUMNS,
 } from './utils/columns';
 
-const API_BASE = 'http://localhost:8000';
-
+const API_BASE = '/api';
 
 const PAGES = {
   executor: {
