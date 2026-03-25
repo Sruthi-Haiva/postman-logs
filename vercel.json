@@ -1,16 +1,9 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "UI_Logs/package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "dist"
-      }
-    }
-  ],
+  "buildCommand": "cd UI_Logs && npm install && npm run build",
+  "outputDirectory": "UI_Logs/dist",
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/index.py" },
-    { "source": "/(.*)", "destination": "/UI_Logs/dist/$1" }
+    { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
