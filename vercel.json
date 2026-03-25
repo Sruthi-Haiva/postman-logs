@@ -1,0 +1,16 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "UI_Logs/package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "UI_Logs/dist"
+      }
+    }
+  ],
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/index.py" },
+    { "source": "/(.*)", "destination": "/UI_Logs/dist/$1" }
+  ]
+}

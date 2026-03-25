@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Log Viewer</title>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      display: flex;
+      height: 100vh;
+      font-family: 'DM Sans', sans-serif;
+      overflow: hidden;
+    }
+
+    /* ── SIDEBAR ── */
+    aside {
+      width: 240px;
+      min-width: 240px;
+      background: #19427D;
+      display: flex;
+      flex-direction: column;
+    }
+    .brand {
+      padding: 24px 20px 20px;
+      border-bottom: 1px solid rgba(255,255,255,0.12);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .brand-icon {
+      width: 32px; height: 32px;
+      background: rgba(255,255,255,0.18);
+      border-radius: 8px;
+      display: grid; place-items: center;
+    }
+    .brand-icon svg { width: 18px; height: 18px; fill: #ffffff; }
+    .brand-name { font-size: 15px; font-weight: 600; letter-spacing: 0.04em; color: #ffffff; }
+    nav { padding: 16px 12px; flex: 1; }
+    .nav-item {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 12px; border-radius: 8px; cursor: pointer;
+      user-select: none; transition: background 0.15s;
+      color: rgba(255,255,255,0.6); font-size: 14px; font-weight: 500;
+    }
+    .nav-item:hover { background: rgba(255,255,255,0.08); color: #ffffff; }
+    .nav-item.open  { background: rgba(255,255,255,0.14); color: #ffffff; }
+    .nav-item-left { display: flex; align-items: center; gap: 10px; }
+    .nav-item-left svg { width: 16px; height: 16px; flex-shrink: 0; }
+    .chevron { width: 16px; height: 16px; transition: transform 0.25s ease; flex-shrink: 0; }
+    .nav-item.open .chevron { transform: rotate(180deg); }
+    .dropdown { overflow: hidden; max-height: 0; transition: max-height 0.3s ease; }
+    .dropdown.open { max-height: 200px; }
+    .sub-item {
+      padding: 9px 12px 9px 36px; border-radius: 8px; margin: 2px 0;
+      cursor: pointer; font-size: 13px; color: rgba(255,255,255,0.55);
+      transition: background 0.15s, color 0.15s; position: relative;
+    }
+    .sub-item::before {
+      content: ''; position: absolute;
+      left: 20px; top: 50%; transform: translateY(-50%);
+      width: 6px; height: 6px; border-radius: 50%;
+      background: currentColor; opacity: 0.5;
+    }
+    .sub-item:hover  { background: rgba(255,255,255,0.08); color: #ffffff; }
+    .sub-item.active { background: rgba(255,255,255,0.14); color: #ffffff; }
+    .sub-item.active::before { opacity: 1; }
+
+    /* ── MAIN ── */
+    main {
+      flex: 1; display: flex; flex-direction: column;
+      overflow: hidden; background: #ffffff;
+    }
+    header {
+      padding: 20px 32px; border-bottom: 1px solid #dce8f5;
+      display: flex; align-items: center; background: #ffffff;
+    }
+    .page-title { font-size: 18px; font-weight: 600; color: #19427D; }
+
+    .page {
+      display: none; flex: 1; flex-direction: column;
+      overflow: hidden; background: #ffffff;
+      animation: fadeIn 0.22s ease;
+    }
+    .page.active { display: flex; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(5px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── INPUT AREA ── */
+    .input-area {
+      padding: 20px 32px;
+      border-bottom: 1px solid #dce8f5;
+      display: flex;
+      gap: 10px;
+    }
+    .input-area input {
+      flex: 1;
+      padding: 10px 16px;
+      border: 1.5px solid #c4d9f5;
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: 'IBM Plex Mono', monospace;
+      color: #19427D;
+      background: #f4f8ff;
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+      max-width: 480px;
+    }
+    .input-area input::placeholder { color: #a0b8d8; }
+    .input-area input:focus {
+      border-color: #19427D;
+      box-shadow: 0 0 0 3px rgba(25,66,125,0.08);
+    }
+    .input-area button {
+      padding: 10px 24px;
+      background: #19427D;
+      color: #ffffff;
+      border: none; border-radius: 8px;
+      font-size: 14px; font-weight: 600;
+      cursor: pointer; transition: background 0.15s, opacity 0.15s;
+    }
+    .input-area button:hover   { background: #1a4f96; }
+    .input-area button:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    /* ── JSON VIEWER CONTAINER ── */
+    .json-viewer-wrap {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* toolbar above JSON */
+    .json-toolbar {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 32px;
+      border-bottom: 1px solid #dce8f5;
+      background: #f9fbff;
+      flex-wrap: wrap;
+    }
+    .json-toolbar.visible { display: flex; }
+
+    .toolbar-btn {
+      display: flex; align-items: center; gap: 6px;
+      padding: 6px 14px;
+      border: 1.5px solid #c4d9f5;
+      border-radius: 6px;
+      background: #ffffff;
+      color: #19427D;
+      font-size: 13px; font-weight: 500;
+      cursor: pointer;
+      transition: background 0.12s, border-color 0.12s;
+      user-select: none;
+    }
+    .toolbar-btn:hover { background: #e8f0fb; border-color: #19427D; }
+    .toolbar-btn svg { width: 14px; height: 14px; flex-shrink: 0; }
+    .toolbar-btn.copied { background: #e6faf2; border-color: #3dba87; color: #1e7a55; }
+
+    .find-box {
+      display: none;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 6px 4px 12px;
+      border: 1.5px solid #19427D;
+      border-radius: 6px;
+      background: #ffffff;
+    }
+    .find-box.visible { display: flex; }
+    .find-box input {
+      border: none; outline: none;
+      font-size: 13px; font-family: 'IBM Plex Mono', monospace;
+      color: #19427D; width: 180px; background: transparent;
+    }
+    .find-count { font-size: 12px; color: #5a7aa8; white-space: nowrap; }
+    .find-nav { display: flex; gap: 2px; }
+    .find-nav button {
+      border: none; background: none; cursor: pointer;
+      color: #19427D; padding: 2px 5px; border-radius: 4px;
+      font-size: 14px; line-height: 1;
+    }
+    .find-nav button:hover { background: #e8f0fb; }
+    .find-close {
+      border: none; background: none; cursor: pointer;
+      color: #a0b8d8; padding: 2px 4px; font-size: 16px; line-height: 1;
+    }
+    .find-close:hover { color: #19427D; }
+
+    /* JSON output */
+    .json-output {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: auto;
+      padding: 20px 32px;
+      background: #ffffff;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 13px;
+      line-height: 1.8;
+      color: #19427D;
+      white-space: pre;
+    }
+
+    /* JSON syntax colors */
+    .j-key    { color: #19427D; font-weight: 600; }
+    .j-str    { color: #1a7a4a; }
+    .j-num    { color: #b05c00; }
+    .j-bool   { color: #7c3aad; }
+    .j-null   { color: #999999; }
+    .j-brace  { color: #19427D; }
+
+    /* search highlight */
+    .j-highlight         { background: #fff0a0; border-radius: 2px; }
+    .j-highlight.current { background: #ffa500; color: #ffffff; border-radius: 2px; }
+
+    /* states */
+    .state-msg {
+      padding: 32px;
+      font-size: 14px;
+      color: #a0b8d8;
+      font-style: italic;
+    }
+    .state-error {
+      margin: 20px 32px;
+      background: #fff0f0;
+      border: 1px solid #f5c4c4;
+      border-radius: 8px;
+      padding: 14px 18px;
+      font-size: 13px;
+      color: #b94040;
+      font-family: 'IBM Plex Mono', monospace;
+    }
+    .spinner {
+      display: inline-block;
+      width: 16px; height: 16px;
+      border: 2px solid rgba(25,66,125,0.15);
+      border-top-color: #19427D;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin-right: 8px; vertical-align: middle;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside>
+  <div class="brand">
+    <div class="brand-icon">
+      <svg viewBox="0 0 24 24"><path d="M4 4h4v4H4zm6 0h4v4h-4zm6 0h4v4h-4zM4 10h4v4H4zm6 0h4v4h-4zm6 0h4v4h-4zM4 16h4v4H4zm6 0h4v4h-4zm6 0h4v4h-4z"/></svg>
+    </div>
+    <span class="brand-name">LogViewer</span>
+  </div>
+  <nav>
+    <div class="nav-item open" id="logsToggle" onclick="toggleLogs()">
+      <div class="nav-item-left">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="16" y1="13" x2="8" y2="13"/>
+          <line x1="16" y1="17" x2="8" y2="17"/>
+          <polyline points="10 9 9 9 8 9"/>
+        </svg>
+        Logs
+      </div>
+      <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="6 9 12 15 18 9"/>
+      </svg>
+    </div>
+    <div class="dropdown open" id="logsDropdown">
+      <div class="sub-item active" id="nav-executor" onclick="showPage('executor')">Executor Logs</div>
+      <div class="sub-item" id="nav-ai" onclick="showPage('ai')">AI Logs</div>
+    </div>
+  </nav>
+</aside>
+
+<!-- MAIN -->
+<main>
+  <header>
+    <div class="page-title" id="headerTitle">Executor Logs</div>
+  </header>
+
+  <!-- Executor Logs Page -->
+  <div class="page active" id="page-executor">
+    <div class="input-area">
+      <input type="text" id="executor-input" placeholder="Enter Session ID..." onkeydown="if(event.key==='Enter') fetchLogs('executor')"/>
+      <button id="executor-btn" onclick="fetchLogs('executor')">Send</button>
+    </div>
+    <div class="json-viewer-wrap">
+      <div class="json-toolbar" id="executor-toolbar">
+        <button class="toolbar-btn" onclick="copyJson('executor')" id="executor-copy-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          Copy
+        </button>
+        <button class="toolbar-btn" onclick="toggleFind('executor')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          Find
+        </button>
+        <div class="find-box" id="executor-find-box">
+          <input type="text" id="executor-find-input" placeholder="Search..." oninput="runFind('executor')" onkeydown="findNav(event,'executor')"/>
+          <span class="find-count" id="executor-find-count"></span>
+          <div class="find-nav">
+            <button onclick="stepFind('executor',-1)" title="Previous">&#8593;</button>
+            <button onclick="stepFind('executor',1)"  title="Next">&#8595;</button>
+          </div>
+          <button class="find-close" onclick="closeFind('executor')">&#x2715;</button>
+        </div>
+      </div>
+      <div class="json-output" id="executor-output">
+        <span style="color:#a0b8d8;font-style:italic">Enter a session ID above to load executor logs.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- AI Logs Page -->
+  <div class="page" id="page-ai">
+    <div class="input-area">
+      <input type="text" id="ai-input" placeholder="Enter Session ID..." onkeydown="if(event.key==='Enter') fetchLogs('ai')"/>
+      <button id="ai-btn" onclick="fetchLogs('ai')">Send</button>
+    </div>
+    <div class="json-viewer-wrap">
+      <div class="json-toolbar" id="ai-toolbar">
+        <button class="toolbar-btn" onclick="copyJson('ai')" id="ai-copy-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          Copy
+        </button>
+        <button class="toolbar-btn" onclick="toggleFind('ai')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          Find
+        </button>
+        <div class="find-box" id="ai-find-box">
+          <input type="text" id="ai-find-input" placeholder="Search..." oninput="runFind('ai')" onkeydown="findNav(event,'ai')"/>
+          <span class="find-count" id="ai-find-count"></span>
+          <div class="find-nav">
+            <button onclick="stepFind('ai',-1)" title="Previous">&#8593;</button>
+            <button onclick="stepFind('ai',1)"  title="Next">&#8595;</button>
+          </div>
+          <button class="find-close" onclick="closeFind('ai')">&#x2715;</button>
+        </div>
+      </div>
+      <div class="json-output" id="ai-output">
+        <span style="color:#a0b8d8;font-style:italic">Enter a session ID above to load AI logs.</span>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+  const API_BASE = 'http://localhost:8000';
+  const endpoints = { executor: '/executor-logs/fetch-data/', ai: '/ai-logs/fetch-data/' };
+
+  // raw JSON store per type
+  const rawJson = { executor: null, ai: null };
+  // highlighted HTML (no find marks) per type
+  const baseHtml = { executor: '', ai: '' };
+  // find state
+  const findState = { executor: { matches: [], current: 0 }, ai: { matches: [], current: 0 } };
+
+  /* ── SIDEBAR ── */
+  function toggleLogs() {
+    document.getElementById('logsToggle').classList.toggle('open');
+    document.getElementById('logsDropdown').classList.toggle('open');
+  }
+  function showPage(name) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.sub-item').forEach(s => s.classList.remove('active'));
+    document.getElementById('page-' + name).classList.add('active');
+    document.getElementById('nav-' + name).classList.add('active');
+    document.getElementById('headerTitle').textContent = name === 'executor' ? 'Executor Logs' : 'AI Logs';
+  }
+
+  /* ── FETCH ── */
+  async function fetchLogs(type) {
+    const input  = document.getElementById(type + '-input');
+    const btn    = document.getElementById(type + '-btn');
+    const output = document.getElementById(type + '-output');
+    const toolbar = document.getElementById(type + '-toolbar');
+    const sessionId = input.value.trim();
+    if (!sessionId) { input.focus(); return; }
+
+    btn.disabled = true;
+    btn.textContent = '...';
+    toolbar.classList.remove('visible');
+    output.innerHTML = '<span class="spinner"></span><span style="color:#5a7aa8;font-size:14px">Fetching logs...</span>';
+
+    try {
+      const url = `${API_BASE}${endpoints[type]}?session_id=${encodeURIComponent(sessionId)}`;
+      const res  = await fetch(url);
+      const data = await res.json();
+
+      rawJson[type] = data;
+      const html = syntaxHighlight(JSON.stringify(data, null, 2));
+      baseHtml[type] = html;
+      output.innerHTML = html;
+      toolbar.classList.add('visible');
+      closeFind(type);
+
+    } catch (err) {
+      rawJson[type] = null;
+      output.innerHTML = `<div class="state-error">Failed to reach the server.<br>${escapeHtml(err.message)}</div>`;
+      toolbar.classList.remove('visible');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Send';
+    }
+  }
+
+  /* ── SYNTAX HIGHLIGHT ── */
+  function syntaxHighlight(json) {
+    return json.replace(
+      /("(\\u[\dA-Fa-f]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+\.?\d*([eE][+\-]?\d+)?)/g,
+      match => {
+        if (/^"/.test(match)) {
+          if (/:$/.test(match)) return `<span class="j-key">${escapeHtml(match)}</span>`;
+          return `<span class="j-str">${escapeHtml(match)}</span>`;
+        }
+        if (/true|false/.test(match)) return `<span class="j-bool">${match}</span>`;
+        if (/null/.test(match))       return `<span class="j-null">${match}</span>`;
+        return `<span class="j-num">${match}</span>`;
+      }
+    ).replace(/[{}\[\]]/g, m => `<span class="j-brace">${m}</span>`);
+  }
+
+  /* ── COPY ── */
+  async function copyJson(type) {
+    if (!rawJson[type]) return;
+    const btn = document.getElementById(type + '-copy-btn');
+    await navigator.clipboard.writeText(JSON.stringify(rawJson[type], null, 2));
+    btn.classList.add('copied');
+    btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Copied!`;
+    setTimeout(() => {
+      btn.classList.remove('copied');
+      btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy`;
+    }, 2000);
+  }
+
+  /* ── FIND ── */
+  function toggleFind(type) {
+    const box = document.getElementById(type + '-find-box');
+    const isVisible = box.classList.contains('visible');
+    if (isVisible) { closeFind(type); } 
+    else {
+      box.classList.add('visible');
+      document.getElementById(type + '-find-input').focus();
+    }
+  }
+
+  function closeFind(type) {
+    const box = document.getElementById(type + '-find-box');
+    box.classList.remove('visible');
+    document.getElementById(type + '-find-input').value = '';
+    document.getElementById(type + '-find-count').textContent = '';
+    findState[type] = { matches: [], current: 0 };
+    // restore base highlighted HTML
+    if (baseHtml[type]) document.getElementById(type + '-output').innerHTML = baseHtml[type];
+  }
+
+  function runFind(type) {
+    const term = document.getElementById(type + '-find-input').value;
+    const output = document.getElementById(type + '-output');
+    const countEl = document.getElementById(type + '-find-count');
+
+    if (!term) {
+      output.innerHTML = baseHtml[type];
+      countEl.textContent = '';
+      findState[type] = { matches: [], current: 0 };
+      return;
+    }
+
+    // Work on plain text of baseHtml to find positions, then re-inject marks
+    const plain = baseHtml[type];
+    const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(${escaped})`, 'gi');
+
+    let count = 0;
+    const marked = plain.replace(regex, (m) => {
+      count++;
+      return `<mark class="j-highlight" data-idx="${count - 1}">${m}</mark>`;
+    });
+
+    output.innerHTML = marked;
+    findState[type].matches = output.querySelectorAll('mark.j-highlight');
+    findState[type].current = 0;
+
+    if (count === 0) {
+      countEl.textContent = 'No results';
+    } else {
+      setCurrentMatch(type, 0);
+    }
+  }
+
+  function setCurrentMatch(type, idx) {
+    const state = findState[type];
+    const marks = state.matches;
+    if (!marks.length) return;
+
+    marks.forEach(m => m.classList.remove('current'));
+    idx = ((idx % marks.length) + marks.length) % marks.length;
+    state.current = idx;
+    marks[idx].classList.add('current');
+    marks[idx].scrollIntoView({ block: 'center', behavior: 'smooth' });
+    document.getElementById(type + '-find-count').textContent = `${idx + 1} / ${marks.length}`;
+  }
+
+  function stepFind(type, dir) {
+    const state = findState[type];
+    if (!state.matches.length) return;
+    setCurrentMatch(type, state.current + dir);
+  }
+
+  function findNav(e, type) {
+    if (e.key === 'Enter')  stepFind(type, e.shiftKey ? -1 : 1);
+    if (e.key === 'Escape') closeFind(type);
+  }
+
+  /* ── UTILS ── */
+  function escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+</script>
+</body>
+</html>
