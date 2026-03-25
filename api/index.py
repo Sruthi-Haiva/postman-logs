@@ -17,5 +17,5 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(ExecutorLogs.router, prefix="/executor-logs", tags=["ExecutorLogs"])
-app.include_router(AiLogs.router, prefix="/ai-logs", tags=["AiLogs"])
+app.include_router(ExecutorLogs.router, prefix="/api/executor-logs", tags=["ExecutorLogs"])
+app.include_router(AiLogs.router, prefix="/api/ai-logs", tags=["AiLogs"])
